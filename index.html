@@ -7,8 +7,13 @@
 <meta name="description" content="Convert iPhone (HEIC), PNG and other photos to JPG on your own device before uploading to ADWSO Project Photos. Developed by Hashim for ADWSO.">
 <meta name="author" content="Hashim, ADWSO">
 <meta name="theme-color" content="#0f548c">
-<link rel="icon" href="logo.png">
-<link rel="apple-touch-icon" href="logo.png">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Photo Converter">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap">
@@ -112,6 +117,9 @@ footer .in{max-width:720px;margin:0 auto;display:flex;flex-direction:column;gap:
   padding-left:max(16px, env(safe-area-inset-left, 0px));padding-right:max(16px, env(safe-area-inset-right, 0px));
   padding-top:16px;padding-bottom:calc(24px + env(safe-area-inset-bottom, 0px))}
 footer strong{color:var(--fg)}
+.install{background:var(--accent-soft);border:1px solid var(--line);border-radius:14px;padding:14px 16px;display:flex;flex-wrap:wrap;align-items:center;gap:10px 12px}
+.install div{flex:1 1 240px;min-width:0}
+.install p{margin:2px 0 0;font-size:14px;color:var(--muted)}
 
 .toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(16px + env(safe-area-inset-bottom, 0px));background:var(--fg);color:var(--bg);padding:10px 16px;border-radius:10px;font-size:14px;max-width:calc(100% - 32px);box-shadow:0 6px 24px rgba(0,0,0,.18);z-index:20}
 [hidden]{display:none!important}
@@ -137,6 +145,15 @@ footer strong{color:var(--fg)}
     <p class="lede">The Project Photos app accepts JPG only. Pick iPhone (HEIC), PNG, WebP or other photos here, save the JPG copies, then attach those in the app.</p>
     <span class="privacy"><svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 2 4 5v6c0 5 3.4 9.7 8 11 4.6-1.3 8-6 8-11V5l-8-3Zm-1 14-4-4 1.4-1.4L11 13.2l4.6-4.6L17 10l-6 6Z"/></svg>Converted on your device. Photos are never uploaded.</span>
   </header>
+
+  <section class="install" id="installCard" hidden aria-label="Install the app">
+    <div>
+      <strong>Install on your phone</strong>
+      <p id="installText">Add this converter to your home screen to open it like an app, even without internet.</p>
+    </div>
+    <button class="btn btn-primary" id="installBtn" type="button" hidden>Install app</button>
+    <button class="btn btn-ghost" id="installClose" type="button">Not now</button>
+  </section>
 
   <section class="picker" id="picker" aria-label="Choose photos">
     <input type="file" id="fileInput" accept="image/*,.heic,.heif,.HEIC,.HEIF" multiple>
@@ -420,6 +437,23 @@ footer strong{color:var(--fg)}
   });
   $("sizeSel").addEventListener("change", reconvertAll);
   $("qualSel").addEventListener("change", reconvertAll);
+
+  // Install as an app (Android prompt, iPhone instructions) and offline support
+  var standalone = (window.matchMedia && window.matchMedia("(display-mode: standalone)").matches) || window.navigator.standalone === true;
+  var isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+  var deferredPrompt = null, dismissed = false;
+  try { dismissed = localStorage.getItem("installDismissed") === "1"; } catch(e){}
+  function showInstall(){ if (!standalone && !dismissed && isTouch) $("installCard").hidden = false; }
+  if (isIOS) { $("installText").textContent = "On iPhone: open this page in Safari, tap the Share button, then Add to Home Screen. It then opens like an app, even without internet."; showInstall(); }
+  window.addEventListener("beforeinstallprompt", function(e){ e.preventDefault(); deferredPrompt = e; $("installBtn").hidden = false; showInstall(); });
+  $("installBtn").addEventListener("click", function(){
+    if (!deferredPrompt) return;
+    deferredPrompt.prompt();
+    deferredPrompt.userChoice.then(function(){ deferredPrompt = null; $("installCard").hidden = true; });
+  });
+  $("installClose").addEventListener("click", function(){ $("installCard").hidden = true; try { localStorage.setItem("installDismissed", "1"); } catch(e){} });
+  window.addEventListener("appinstalled", function(){ $("installCard").hidden = true; toast("Installed. Open it from your home screen."); });
+  if ("serviceWorker" in navigator) { window.addEventListener("load", function(){ navigator.serviceWorker.register("sw.js").catch(function(){}); }); }
   render();
 })();
 </script>
