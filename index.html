@@ -152,10 +152,10 @@ footer strong{color:var(--fg)}
     <div class="opt">
       <label for="sizeSel">Photo size</label>
       <select id="sizeSel">
-        <option value="2560" selected>Upload size (up to 2560 px), recommended</option>
-        <option value="0">Full size</option>
+        <option value="0" selected>Full size (original resolution)</option>
+        <option value="2560">Smaller (up to 2560 px)</option>
       </select>
-      <small>Upload size keeps photos sharp for reports and well under the app's 10 MB limit.</small>
+      <small>Full size keeps every detail. If a photo is over the app's 10 MB limit, choose Smaller.</small>
     </div>
     <div class="opt">
       <label for="qualSel">Quality</label>
@@ -389,7 +389,7 @@ footer strong{color:var(--fg)}
         var big = it.out.size > APP_LIMIT;
         chip.className += big ? " warn" : " ok"; chip.textContent = it.saved ? "Saved" : (big ? "Ready, too large for the app" : "Ready");
         sz.textContent = ext(it.file.name) + " " + fmt(it.file.size) + " → JPG " + fmt(it.out.size) + " · " + it.w + "×" + it.h;
-        if (big) { note = document.createElement("div"); note.className = "note"; note.textContent = "Over the app's 10 MB limit. Choose Upload size above."; }
+        if (big) { note = document.createElement("div"); note.className = "note"; note.textContent = "Over the app's 10 MB limit. Choose Smaller above."; }
       }
       meta.appendChild(chip); meta.appendChild(nm); meta.appendChild(sz); if (note) meta.appendChild(note);
       li.appendChild(th); li.appendChild(meta);
