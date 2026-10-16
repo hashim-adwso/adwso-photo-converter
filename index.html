@@ -1,0 +1,427 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>ADWSO Photo Converter</title>
+<meta name="description" content="Convert iPhone (HEIC), PNG and other photos to JPG on your own device before uploading to ADWSO Project Photos. Developed by Hashim for ADWSO.">
+<meta name="author" content="Hashim, ADWSO">
+<meta name="theme-color" content="#0f548c">
+<link rel="icon" href="logo.png">
+<link rel="apple-touch-icon" href="logo.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap">
+<style>
+/* Layout: one column (max 720px) — brand bar, photo picker, options, result list, credit footer.
+   Brand colours: --brand / --brand-2 are set from the ADWSO logo. */
+:root{
+  --brand:#0f548c; --brand-2:#1d8a4e;
+  --bg:#f2f5f8; --surface:#ffffff; --fg:#13202d; --muted:#566778; --line:#d5dee7;
+  --accent:var(--brand); --accent-fg:#ffffff; --accent-soft:#e2edf6;
+  --ok:#1b7443; --ok-soft:#e0f2e8; --warn:#8f5400; --warn-soft:#fbefd9; --err:#b42318; --err-soft:#fde7e4;
+  --sans:"IBM Plex Sans", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --mono:"IBM Plex Mono", ui-monospace, Menlo, Consolas, monospace;
+  color-scheme:light;
+}
+@media (prefers-color-scheme: dark){
+  :root{
+    --bg:#0e1620; --surface:#16212d; --fg:#e4ebf2; --muted:#98a9ba; --line:#283849;
+    --accent:#5ea8e4; --accent-fg:#08131e; --accent-soft:#15324b;
+    --ok:#62c891; --ok-soft:#123323; --warn:#e3ab50; --warn-soft:#382810; --err:#f28b80; --err-soft:#3b1814;
+    color-scheme:dark;
+  }
+}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--sans);font-size:15px;line-height:1.5}
+.brandbar{background:var(--brand);color:#fff;padding-top:env(safe-area-inset-top, 0px)}
+.brandbar .in{max-width:720px;margin:0 auto;display:flex;align-items:center;gap:12px;
+  padding-left:max(16px, env(safe-area-inset-left, 0px));padding-right:max(16px, env(safe-area-inset-right, 0px));padding-block:12px}
+.logo{height:44px;width:auto;background:#fff;border-radius:8px;padding:4px;flex:none}
+.wordmark{height:44px;min-width:44px;padding:0 10px;border-radius:8px;background:#fff;color:var(--brand);font-weight:700;letter-spacing:.06em;display:inline-flex;align-items:center;flex:none}
+.brandtext{display:flex;flex-direction:column;line-height:1.2;min-width:0}
+.brandtext strong{font-size:17px}
+.brandtext span{font-size:12.5px;opacity:.85}
+.stripe{height:4px;background:var(--brand-2)}
+
+main{max-width:720px;margin:0 auto;display:flex;flex-direction:column;gap:20px;
+  padding-left:max(16px, env(safe-area-inset-left, 0px));padding-right:max(16px, env(safe-area-inset-right, 0px));padding-block:20px 32px}
+header{display:flex;flex-direction:column;gap:6px}
+h1{font-size:clamp(24px,5vw,30px);line-height:1.15;margin:0;font-weight:700;text-wrap:balance}
+.lede{margin:0;color:var(--muted);max-width:60ch}
+.privacy{display:inline-flex;align-items:center;gap:8px;font-size:13px;color:var(--ok);background:var(--ok-soft);padding:6px 10px;border-radius:999px;align-self:flex-start;font-weight:500}
+.privacy svg{flex:none}
+
+.picker{background:var(--surface);border:1.5px dashed var(--line);border-radius:14px;padding:24px 18px;display:flex;flex-direction:column;align-items:center;gap:12px;text-align:center;transition:border-color .15s, background .15s}
+.picker.drag{border-color:var(--accent);background:var(--accent-soft)}
+.picker p{margin:0;color:var(--muted);font-size:14px}
+.formats{font-family:var(--mono);font-size:12px;color:var(--muted);letter-spacing:.02em}
+.btn{font:inherit;font-weight:600;border-radius:10px;border:1px solid transparent;padding:11px 18px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:44px;text-decoration:none}
+.btn-primary{background:var(--accent);color:var(--accent-fg)}
+.btn-primary:hover{filter:brightness(1.08)}
+.btn-ghost{background:transparent;color:var(--accent);border-color:var(--line)}
+.btn-ghost:hover{background:var(--accent-soft)}
+.btn:disabled{opacity:.5;cursor:not-allowed;filter:none}
+.btn:focus-visible,select:focus-visible,summary:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+#fileInput{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}
+
+.options{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px}
+.opt{display:flex;flex-direction:column;gap:6px}
+.opt label{font-size:13px;font-weight:600}
+.opt select{font:inherit;font-size:14px;padding:10px 12px;border-radius:10px;border:1px solid var(--line);background:var(--surface);color:var(--fg);min-height:44px}
+.opt small{color:var(--muted);font-size:12.5px}
+
+.results{display:flex;flex-direction:column;gap:12px}
+.results-head{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px}
+.results-head h2{font-size:17px;margin:0}
+.count{color:var(--muted);font-weight:400;font-size:14px;font-variant-numeric:tabular-nums}
+.head-actions{display:flex;gap:8px;flex-wrap:wrap}
+ul.list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:10px}
+.item{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:12px;display:grid;grid-template-columns:64px minmax(0,1fr) auto;gap:12px;align-items:center}
+.thumb{width:64px;height:64px;border-radius:8px;background:var(--accent-soft);object-fit:cover;display:block}
+.meta{min-width:0;display:flex;flex-direction:column;gap:3px}
+.name{font-weight:600;font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sizes{font-family:var(--mono);font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums}
+.chip{align-self:flex-start;font-size:12px;font-weight:600;padding:2px 8px;border-radius:999px}
+.chip.wait{background:var(--accent-soft);color:var(--accent)}
+.chip.ok{background:var(--ok-soft);color:var(--ok)}
+.chip.warn{background:var(--warn-soft);color:var(--warn)}
+.chip.err{background:var(--err-soft);color:var(--err)}
+.note{font-size:12.5px;color:var(--warn)}
+.note.err{color:var(--err)}
+.item .btn{padding:9px 14px;min-height:40px;font-size:14px}
+@media (max-width:460px){
+  .item{grid-template-columns:56px minmax(0,1fr)}
+  .thumb{width:56px;height:56px}
+  .item .btn{grid-column:1 / -1}
+}
+
+.empty{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:18px}
+.empty h2{font-size:15px;margin:0 0 10px}
+.steps{margin:0;padding-left:20px;display:flex;flex-direction:column;gap:6px}
+.steps li::marker{color:var(--accent);font-weight:700}
+
+details{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:12px 16px}
+summary{cursor:pointer;font-weight:600}
+details p, details ul{color:var(--muted);font-size:14px;margin:10px 0 0}
+details ul{padding-left:20px}
+
+footer{border-top:1px solid var(--line);margin-top:8px}
+footer .in{max-width:720px;margin:0 auto;display:flex;flex-direction:column;gap:4px;font-size:13px;color:var(--muted);
+  padding-left:max(16px, env(safe-area-inset-left, 0px));padding-right:max(16px, env(safe-area-inset-right, 0px));
+  padding-top:16px;padding-bottom:calc(24px + env(safe-area-inset-bottom, 0px))}
+footer strong{color:var(--fg)}
+
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(16px + env(safe-area-inset-bottom, 0px));background:var(--fg);color:var(--bg);padding:10px 16px;border-radius:10px;font-size:14px;max-width:calc(100% - 32px);box-shadow:0 6px 24px rgba(0,0,0,.18);z-index:20}
+[hidden]{display:none!important}
+@media (prefers-reduced-motion: no-preference){ .toast{animation:up .2s ease-out} @keyframes up{from{transform:translate(-50%,8px);opacity:0}to{transform:translate(-50%,0);opacity:1}} }
+</style>
+</head>
+<body>
+<div class="brandbar">
+  <div class="in">
+    <img class="logo" id="logo" src="logo.png" alt="ADWSO logo">
+    <span class="wordmark" id="wordmark" hidden>ADWSO</span>
+    <div class="brandtext">
+      <strong>ADWSO Photo Converter</strong>
+      <span>Afghanistan Development and Welfare Services Organization</span>
+    </div>
+  </div>
+</div>
+<div class="stripe" aria-hidden="true"></div>
+
+<main>
+  <header>
+    <h1>Convert photos to JPG before uploading</h1>
+    <p class="lede">The Project Photos app accepts JPG only. Pick iPhone (HEIC), PNG, WebP or other photos here, save the JPG copies, then attach those in the app.</p>
+    <span class="privacy"><svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 2 4 5v6c0 5 3.4 9.7 8 11 4.6-1.3 8-6 8-11V5l-8-3Zm-1 14-4-4 1.4-1.4L11 13.2l4.6-4.6L17 10l-6 6Z"/></svg>Converted on your device. Photos are never uploaded.</span>
+  </header>
+
+  <section class="picker" id="picker" aria-label="Choose photos">
+    <input type="file" id="fileInput" accept="image/*,.heic,.heif,.HEIC,.HEIF" multiple>
+    <button class="btn btn-primary" id="chooseBtn" type="button">
+      <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M19 7h-3.2L14 5h-4L8.2 7H5a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2Zm-7 11a4.5 4.5 0 1 1 0-9 4.5 4.5 0 0 1 0 9Zm0-2a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5Z"/></svg>
+      Choose photos
+    </button>
+    <p>You can pick several at once. On a computer you can also drag photos here.</p>
+    <span class="formats">HEIC · HEIF · PNG · WebP · AVIF · GIF · BMP · JPG</span>
+  </section>
+
+  <section class="options" aria-label="Options">
+    <div class="opt">
+      <label for="sizeSel">Photo size</label>
+      <select id="sizeSel">
+        <option value="2560" selected>Upload size (up to 2560 px), recommended</option>
+        <option value="0">Full size</option>
+      </select>
+      <small>Upload size keeps photos sharp for reports and well under the app's 10 MB limit.</small>
+    </div>
+    <div class="opt">
+      <label for="qualSel">Quality</label>
+      <select id="qualSel">
+        <option value="0.92" selected>High</option>
+        <option value="0.82">Standard (smaller files)</option>
+      </select>
+      <small>High is right for the archive. Use Standard on slow connections.</small>
+    </div>
+  </section>
+
+  <section class="empty" id="emptyState" aria-label="How it works">
+    <h2>How it works</h2>
+    <ol class="steps">
+      <li>Tap <strong>Choose photos</strong> and select photos from your gallery or files.</li>
+      <li>Wait for each photo to show <strong>Ready</strong>.</li>
+      <li>Tap <strong>Save</strong>. On a phone, choose <strong>Save Image</strong> (iPhone) or save to your gallery. On a computer the JPG goes to Downloads.</li>
+      <li>Open Project Photos and attach the saved JPG as usual.</li>
+    </ol>
+  </section>
+
+  <section class="results" id="results" hidden aria-live="polite">
+    <div class="results-head">
+      <h2>Your photos <span class="count" id="count"></span></h2>
+      <div class="head-actions">
+        <button class="btn btn-ghost" id="clearBtn" type="button">Clear list</button>
+        <button class="btn btn-primary" id="allBtn" type="button">Save all</button>
+      </div>
+    </div>
+    <ul class="list" id="list"></ul>
+  </section>
+
+  <details>
+    <summary>Avoid converting next time</summary>
+    <p>You can make your phone save photos as JPG from the start:</p>
+    <ul>
+      <li><strong>iPhone:</strong> Settings → Camera → Formats → choose <strong>Most Compatible</strong>. New photos are saved as JPG. Photos already taken stay HEIC.</li>
+      <li><strong>Android:</strong> most phones already save JPG. If yours saves HEIF, open the Camera app → Settings → Picture formats and turn HEIF off.</li>
+      <li>Screenshots are usually PNG, so they always need converting here.</li>
+    </ul>
+  </details>
+</main>
+
+<footer>
+  <div class="in">
+    <span><strong>ADWSO Photo Converter</strong> · Developed by <strong>Hashim</strong> for ADWSO</span>
+    <span>Works offline once loaded. No photos or personal data leave your device.</span>
+  </div>
+</footer>
+
+<div class="toast" id="toast" role="status" hidden></div>
+
+<script>
+(function(){
+  "use strict";
+  var MAX_PIXELS = 16000000;          // safe canvas size on iPhones
+  var APP_LIMIT = 10 * 1024 * 1024;   // Project Photos attachment limit
+  var HEIC_LIB = "https://cdn.jsdelivr.net/npm/heic2any@0.0.4/dist/heic2any.min.js";
+  var ZIP_LIB = "https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js";
+
+  var items = [], nextId = 1, busy = false, libs = {};
+  var $ = function(id){ return document.getElementById(id); };
+  var fileInput = $("fileInput"), list = $("list");
+
+  // Show a text wordmark if the logo file is missing
+  var logo = $("logo");
+  function noLogo(){ logo.hidden = true; $("wordmark").hidden = false; }
+  logo.addEventListener("error", noLogo);
+  if (logo.complete && logo.naturalWidth === 0) noLogo();
+
+  var isTouch = window.matchMedia && window.matchMedia("(pointer: coarse)").matches;
+  function canShareFiles(files){
+    try { return isTouch && navigator.canShare && navigator.canShare({ files: files }); } catch(e){ return false; }
+  }
+
+  function toast(msg){
+    var t = $("toast"); t.textContent = msg; t.hidden = false;
+    clearTimeout(toast._t); toast._t = setTimeout(function(){ t.hidden = true; }, 3500);
+  }
+  function fmt(bytes){
+    if (bytes < 1024 * 1024) return Math.max(1, Math.round(bytes / 1024)) + " KB";
+    return (bytes / 1024 / 1024).toFixed(1) + " MB";
+  }
+  function ext(name){ var m = /\.([^.]+)$/.exec(name || ""); return m ? m[1].toUpperCase() : "?"; }
+  function base(name){ return (name || "photo").replace(/\.[^.]+$/, "") || "photo"; }
+  function isHeic(f){ return /\.(heic|heif)$/i.test(f.name) || /hei[cf]/i.test(f.type || ""); }
+
+  function loadScript(src){
+    if (libs[src]) return libs[src];
+    libs[src] = new Promise(function(res, rej){
+      var s = document.createElement("script"); s.src = src; s.async = true;
+      s.onload = res; s.onerror = function(){ delete libs[src]; rej(new Error("lib")); };
+      document.head.appendChild(s);
+    });
+    return libs[src];
+  }
+  function loadImage(blob){
+    return new Promise(function(res, rej){
+      var url = URL.createObjectURL(blob), img = new Image();
+      img.onload = function(){ URL.revokeObjectURL(url); res(img); };
+      img.onerror = function(){ URL.revokeObjectURL(url); rej(new Error("decode")); };
+      img.src = url;
+    });
+  }
+  function decode(file){
+    return loadImage(file).catch(function(err){
+      if (!isHeic(file)) throw err;
+      return loadScript(HEIC_LIB).then(function(){
+        return window.heic2any({ blob: file, toType: "image/png" });
+      }).then(function(b){ return loadImage(Array.isArray(b) ? b[0] : b); });
+    });
+  }
+  function encode(img){
+    var w = img.naturalWidth, h = img.naturalHeight, s = 1;
+    var maxEdge = parseInt($("sizeSel").value, 10) || 0;
+    var q = parseFloat($("qualSel").value);
+    if (maxEdge && Math.max(w, h) > maxEdge) s = maxEdge / Math.max(w, h);
+    if (w * h * s * s > MAX_PIXELS) s = Math.sqrt(MAX_PIXELS / (w * h));
+    w = Math.max(1, Math.round(w * s)); h = Math.max(1, Math.round(h * s));
+    var c = document.createElement("canvas"); c.width = w; c.height = h;
+    var ctx = c.getContext("2d");
+    ctx.fillStyle = "#ffffff"; ctx.fillRect(0, 0, w, h);   // transparent PNGs get a white background
+    ctx.drawImage(img, 0, 0, w, h);
+    return new Promise(function(res, rej){
+      c.toBlob(function(b){ c.width = 0; c.height = 0; b ? res({ blob: b, w: w, h: h }) : rej(new Error("encode")); }, "image/jpeg", q);
+    });
+  }
+
+  function addFiles(fileList){
+    Array.prototype.forEach.call(fileList, function(f){ items.push({ id: nextId++, file: f, status: "queued" }); });
+    if (fileList.length) { render(); run(); }
+  }
+  function run(){
+    if (busy) return;
+    var it = items.find(function(x){ return x.status === "queued"; });
+    if (!it) return;
+    busy = true; it.status = "working"; render();
+    decode(it.file).then(encode).then(function(r){
+      if (it.outUrl) URL.revokeObjectURL(it.outUrl);
+      it.out = r.blob; it.w = r.w; it.h = r.h; it.outUrl = URL.createObjectURL(r.blob); it.status = "done"; it.saved = false;
+    }).catch(function(e){
+      it.status = "error";
+      it.error = (e && e.message === "lib")
+        ? "Couldn't load the HEIC converter. Check your internet connection and try again."
+        : "This file couldn't be opened as a photo. Try a different file.";
+    }).then(function(){ busy = false; render(); setTimeout(run, 30); });
+  }
+  function reconvertAll(){
+    var any = false;
+    items.forEach(function(it){ if (it.status === "done" || it.status === "error") { it.status = "queued"; any = true; } });
+    if (any) { render(); run(); toast("Converting again with the new settings"); }
+  }
+
+  function outName(it){ return base(it.file.name) + ".jpg"; }
+  function asFile(it, name){ return new File([it.out], name || outName(it), { type: "image/jpeg" }); }
+  function downloadBlob(blob, name){
+    var a = document.createElement("a"), url = URL.createObjectURL(blob);
+    a.href = url; a.download = name; document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(function(){ URL.revokeObjectURL(url); }, 4000);
+  }
+
+  function saveOne(it){
+    var f = asFile(it);
+    if (canShareFiles([f])) {
+      navigator.share({ files: [f] }).then(function(){ it.saved = true; render(); }, function(err){
+        if (err && err.name === "AbortError") return;
+        downloadBlob(it.out, outName(it)); it.saved = true; render();
+      });
+    } else {
+      downloadBlob(it.out, outName(it)); it.saved = true; render(); toast("Saved " + outName(it));
+    }
+  }
+  function uniqueNames(done){
+    var used = {};
+    return done.map(function(it){
+      var n = outName(it), b = base(n), k = 2;
+      while (used[n.toLowerCase()]) { n = b + "-" + (k++) + ".jpg"; }
+      used[n.toLowerCase()] = true; return n;
+    });
+  }
+  function saveAll(){
+    var done = items.filter(function(x){ return x.status === "done"; });
+    if (!done.length) { toast("No converted photos yet."); return; }
+    var names = uniqueNames(done);
+    var files = done.map(function(it, i){ return asFile(it, names[i]); });
+    if (canShareFiles(files)) {
+      navigator.share({ files: files }).then(function(){
+        done.forEach(function(it){ it.saved = true; }); render();
+      }, function(err){ if (!err || err.name !== "AbortError") toast("Couldn't open the save menu. Save the photos one by one."); });
+      return;
+    }
+    var btn = $("allBtn"); btn.disabled = true; btn.textContent = "Preparing ZIP…";
+    loadScript(ZIP_LIB).then(function(){
+      var zip = new window.JSZip();
+      done.forEach(function(it, i){ zip.file(names[i], it.out, { binary: true }); });
+      return zip.generateAsync({ type: "blob", compression: "STORE" });
+    }).then(function(z){
+      downloadBlob(z, "ADWSO-photos-jpg-" + new Date().toISOString().slice(0, 10) + ".zip");
+      done.forEach(function(it){ it.saved = true; });
+      toast("Saved " + done.length + " photos as a ZIP file");
+    }).catch(function(){ toast("Couldn't prepare the ZIP. Check your internet connection and try again."); })
+      .then(function(){ btn.disabled = false; render(); });
+  }
+
+  function render(){
+    $("emptyState").hidden = items.length > 0;
+    $("results").hidden = items.length === 0;
+    var ready = items.filter(function(x){ return x.status === "done"; }).length;
+    $("count").textContent = "· " + ready + " of " + items.length + " ready";
+    var allBtn = $("allBtn");
+    if (allBtn.textContent.indexOf("Preparing") !== 0) {
+      allBtn.textContent = isTouch ? "Save all to phone" : "Save all as ZIP";
+      allBtn.disabled = ready === 0;
+    }
+
+    list.textContent = "";
+    items.forEach(function(it){
+      var li = document.createElement("li"); li.className = "item";
+      var th = document.createElement("img"); th.className = "thumb"; th.alt = "";
+      if (it.outUrl) th.src = it.outUrl;
+      var meta = document.createElement("div"); meta.className = "meta";
+      var nm = document.createElement("div"); nm.className = "name"; nm.textContent = it.status === "done" ? outName(it) : it.file.name; nm.title = it.file.name;
+      var sz = document.createElement("div"); sz.className = "sizes";
+      var chip = document.createElement("span"); chip.className = "chip";
+      var note = null, orig = ext(it.file.name) + " · " + fmt(it.file.size);
+      if (it.status === "queued") { chip.className += " wait"; chip.textContent = "Waiting"; sz.textContent = orig; }
+      else if (it.status === "working") { chip.className += " wait"; chip.textContent = "Converting…"; sz.textContent = orig; }
+      else if (it.status === "error") { chip.className += " err"; chip.textContent = "Not converted"; sz.textContent = orig;
+        note = document.createElement("div"); note.className = "note err"; note.textContent = it.error; }
+      else {
+        var big = it.out.size > APP_LIMIT;
+        chip.className += big ? " warn" : " ok"; chip.textContent = it.saved ? "Saved" : (big ? "Ready, too large for the app" : "Ready");
+        sz.textContent = ext(it.file.name) + " " + fmt(it.file.size) + " → JPG " + fmt(it.out.size) + " · " + it.w + "×" + it.h;
+        if (big) { note = document.createElement("div"); note.className = "note"; note.textContent = "Over the app's 10 MB limit. Choose Upload size above."; }
+      }
+      meta.appendChild(chip); meta.appendChild(nm); meta.appendChild(sz); if (note) meta.appendChild(note);
+      li.appendChild(th); li.appendChild(meta);
+      if (it.status === "done") {
+        var b = document.createElement("button"); b.type = "button"; b.className = "btn " + (it.saved ? "btn-ghost" : "btn-primary");
+        b.textContent = it.saved ? "Save again" : "Save";
+        b.addEventListener("click", function(){ saveOne(it); });
+        li.appendChild(b);
+      } else if (it.status === "error") {
+        var r = document.createElement("button"); r.type = "button"; r.className = "btn btn-ghost"; r.textContent = "Remove";
+        r.addEventListener("click", function(){ items = items.filter(function(x){ return x !== it; }); render(); });
+        li.appendChild(r);
+      }
+      list.appendChild(li);
+    });
+  }
+
+  $("chooseBtn").addEventListener("click", function(){ fileInput.click(); });
+  fileInput.addEventListener("change", function(){ addFiles(fileInput.files); fileInput.value = ""; });
+  var picker = $("picker");
+  ["dragenter","dragover"].forEach(function(t){ picker.addEventListener(t, function(e){ e.preventDefault(); picker.classList.add("drag"); }); });
+  ["dragleave","drop"].forEach(function(t){ picker.addEventListener(t, function(e){ e.preventDefault(); picker.classList.remove("drag"); }); });
+  picker.addEventListener("drop", function(e){ if (e.dataTransfer && e.dataTransfer.files) addFiles(e.dataTransfer.files); });
+  $("allBtn").addEventListener("click", saveAll);
+  $("clearBtn").addEventListener("click", function(){
+    items.forEach(function(it){ if (it.outUrl) URL.revokeObjectURL(it.outUrl); });
+    items = []; render();
+  });
+  $("sizeSel").addEventListener("change", reconvertAll);
+  $("qualSel").addEventListener("change", reconvertAll);
+  render();
+})();
+</script>
+</body>
+</html>
